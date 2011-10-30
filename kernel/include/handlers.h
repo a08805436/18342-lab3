@@ -25,6 +25,7 @@
 ssize_t kread(int fd, void *buf, size_t count);
 ssize_t kwrite(int fd, const void *buf, size_t count);
 void kexit(int status);
+unsigned long ktime(void);
 
 /*
  * prototypes
@@ -32,5 +33,6 @@ void kexit(int status);
 int install_handler(unsigned int *vector_addr, void *handler_addr);
 void s_handler(void);
 void i_handler(void);
+void init_irq_regs(void);
 
 #endif /* HANDLERS_H */

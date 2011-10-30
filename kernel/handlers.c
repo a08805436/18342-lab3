@@ -8,6 +8,9 @@
 #include "handlers.h"
 #include <exports.h>
 #include <bits/swi.h>
+#include <arm/interrupt.h>
+#include <arm/timer.h>
+#include <arm/reg.h>
 
 /*
  * globals
@@ -95,9 +98,8 @@ int install_handler(unsigned int *vector_addr, void *handler_addr)
  * @return: return value form swi on success, -1 on failure (swi num not 
             supported)
  */
-int C_SWI_Handler(int swi_num, unsigned int *sp)
+void C_SWI_Handler(int swi_num, unsigned int *sp)
 {
-	ssize_t retval = -1;
 	unsigned int r0, r1, r2;
 	printf("\n inside C_SWI_Handler: swi num is %x", swi_num);
 	switch(swi_num) {
@@ -105,13 +107,16 @@ int C_SWI_Handler(int swi_num, unsigned int *sp)
 			r0 = *sp;
 			r1 = *(sp + 1);
 			r2 = *(sp + 2);
-			retval = kread((int)r0, (void *)r1, (size_t)r2);
+			*sp = kread((int)r0, (void *)r1, (size_t)r2);
 			break;
 		case WRITE_SWI:
 			r0 = *sp;
 			r1 = *(sp + 1);
 			r2 = *(sp + 2);
-			retval = kwrite((int)r0, (const void *)r1, (size_t)r2);
+			*sp = kwrite((int)r0, (const void *)r1, (size_t)r2);
+			break;
+		case TIME_SWI:
+			*sp = ktime();
 			break;
 		case EXIT_SWI:
 			/*
@@ -119,10 +124,8 @@ int C_SWI_Handler(int swi_num, unsigned int *sp)
 			 */
 			*def_swi_handler_loc = def_swi_handler_inst1;
 			*(def_swi_handler_loc + 1) = def_swi_handler_inst2;
-/*
 			*def_irq_handler_loc = def_irq_handler_inst1;
 			*(def_irq_handler_loc + 1) = def_irq_handler_inst2;
-*/
 			r0 = *sp;
 			kexit((int)r0);
 			break;
@@ -134,19 +137,68 @@ int C_SWI_Handler(int swi_num, unsigned int *sp)
 			 */
 			*def_swi_handler_loc = def_swi_handler_inst1;
 			*(def_swi_handler_loc + 1) = def_swi_handler_inst2;
-/*
 			*def_irq_handler_loc = def_irq_handler_inst1;
 			*(def_irq_handler_loc + 1) = def_irq_handler_inst2;
-*/
 			kexit(0xbadc0de);
 	}
-	return retval;
+	return;
 }
 
-int C_IRQ_Handler(int irq_num, unsigned int *sp) 
+void C_IRQ_Handler(void) 
 {
-	printf("\n inside C_IRQ_Handler: irq num is %d", irq_num);
-	return 0;
+	uint32_t icpr_reg, osmr0_mask, ossr_reg;
+	/*
+	 * identify the source of IRQ
+	 */
+	icpr_reg = reg_read(INT_ICIP_ADDR);
+
+	/*
+	 * if the source is not osmr0 == oscr, bail out
+	 */
+	osmr0_mask = 0x1 << INT_OSTMR_0;
+	if(!(icpr_reg & osmr0_mask)) {
+		printf("\n C_IRQ_Handler, IRQ from unsupported source, bailing out\n");
+		return;
+	}
+
+	/*
+	 * redirect control to timer handler
+	 */
+	 handle_timer_irq();
+
+	 /*
+	  * acknowlegde the timer IRQ
+	  */
+	ossr_reg = reg_read(OSTMR_OSSR_ADDR);
+	printf("\n before ack, ossr reg is %x", ossr_reg);
+	ossr_reg |= OSTMR_OSSR_M0;
+	reg_write(OSTMR_OSSR_ADDR, ossr_reg);
+	
+	ossr_reg = reg_read(OSTMR_OSSR_ADDR);
+	printf("\n after ack, ossr reg is %x", ossr_reg);
+	printf("\n done with C_IRQ_Handler\n");
+	return;
 }
 
-
+void init_irq_regs(void)
+{
+	uint32_t icmr_mask, iclr_reg, iclr_mask;
+	icmr_mask = (0x1 << INT_OSTMR_0);
+	
+	printf("\n inside init_irq_regs \n");	
+	/*
+	 * write this mask into ICMR
+	 */
+	reg_write(INT_ICMR_ADDR, icmr_mask);
+	printf("\n init_irq_regs finished writing icmr_mask\n");	
+	/*
+	 * ensure that the OSSRMR0 interrupt is routed as an IRQ
+	 */
+	iclr_reg = reg_read(INT_ICLR_ADDR);
+	iclr_mask = ~(0x1 << INT_OSTMR_0);
+	iclr_reg &= iclr_mask;
+	reg_write(INT_ICLR_ADDR, iclr_reg);
+	
+	printf("\n init_irq_regs finished writing into iclr_reg\n");	
+	return;
+}

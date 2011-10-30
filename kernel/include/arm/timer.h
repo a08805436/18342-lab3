@@ -39,6 +39,8 @@
 #ifndef ASSEMBLER
 
 /* Add your C code here.  Put your group name at the top! */
+void init_timer_driver(void);
+void handle_timer_irq(void);
 
 #endif /* ASSEMBLER */
 

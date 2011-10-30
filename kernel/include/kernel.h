@@ -14,11 +14,17 @@
 #define USER_STACK_BOTTOM 0xa2FFFFFC
 
 /*
+ * IRQ details
+ */
+#define IRQ_STACK_SIZE 4096
+
+/*
  * Prototypes
  */
 void launch_user_app(unsigned int *);
 void s_handler(void);
 void i_handler(void);
 unsigned int get_kernel_r0(void);
+void setup_irq_stack(char *);
 
 #endif /* KERNEL_H */
