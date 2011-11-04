@@ -15,7 +15,7 @@
 /*
  * globals
  */
-extern unsigned long num_ticks;
+extern volatile unsigned long num_ticks;
 
 /*
  * implementation of the time syscall

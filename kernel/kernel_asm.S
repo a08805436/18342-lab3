@@ -11,12 +11,18 @@
 	.global launch_user_app  
 	.global get_kernel_r0
 	.global setup_irq_stack
+	.global disable_intr
 
 @ custom s_handler implementation
 s_handler:
 	sub sp, sp, #4                @ make space for storing spsr
-	stmfd sp!, {r0-r12, lr}       
+	stmfd sp!, {r0-r12, lr}      
 	ldr r8, [sp, #60]             @ restore kernel's copy of r8
+
+	mrs r0, cpsr                  @ enable interrupts here... 
+	bic r0, r0, #0x80
+	msr cpsr, r0
+
 	mrs r2, spsr                  
 	str r2, [sp, #56]             @ save spsr on the space created on stack
 	mov r1, sp                    @ setup 2nd arg for C_SWI_Handler
@@ -71,4 +77,9 @@ setup_irq_stack:
 	orr ip, ip, r1
 	msr cpsr, ip                  @switch back to SVC mode
 	mov pc, lr
-	
+
+disable_intr:
+	mrs r0, cpsr                  @ enable interrupts here... 
+	orr r0, r0, #0x80
+	msr cpsr, r0
+	mov pc, lr

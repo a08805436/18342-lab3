@@ -20,6 +20,7 @@ unsigned int def_irq_handler_inst1, def_irq_handler_inst2;
 unsigned int *def_swi_handler_loc;
 unsigned int *def_irq_handler_loc;
 
+
  /*
  * function that installs the custom handler by hijacking the first 2 
  * instructions of the default handler
@@ -35,7 +36,6 @@ int install_handler(unsigned int *vector_addr, void *handler_addr)
 	/*
 	 * validate the vector address
 	 */
-	printf("\n inside install handler, vector addr is %p handler_addr is %p\n", vector_addr, handler_addr);
 	if((vector_addr != (unsigned int *)SWI_VECTOR_ADDR) &&
 	   (vector_addr != (unsigned int *)IRQ_VECTOR_ADDR)) {
 		printf("Invalid vector address passed to install_handler\n");
@@ -51,27 +51,22 @@ int install_handler(unsigned int *vector_addr, void *handler_addr)
 		return -1;
 	}
 	
-	printf("\n install handler offset is %x", offset);
 	/*
 	 * fetch the offset from the LDR inst and go to the default handler
 	 */
 	def_handler_loc = (unsigned int *)(*(unsigned int *)((char *)vector_addr + 
 												 ACTUAL_PC_OFFSET + offset));
 
-	printf("\n install handler loc is %p", def_handler_loc);
 	/*
 	 * save the existing instructions in the default handler
 	 */
 	switch ((unsigned int)vector_addr) {
 		case SWI_VECTOR_ADDR:
-		 	printf("\n install handler inside SWI case");
 			def_swi_handler_inst1 = *def_handler_loc;
 			def_swi_handler_inst2 = *(def_handler_loc +1);
 			def_swi_handler_loc = def_handler_loc;
-		 	printf("\n install handler def swi handler loc is %p", def_swi_handler_loc);
 			break;
 		case IRQ_VECTOR_ADDR:
-		 	printf("\n install handler inside IRQ case");
 			def_irq_handler_inst1 = *def_handler_loc;
 			def_irq_handler_inst2 = *(def_handler_loc +1);
 			def_irq_handler_loc = def_handler_loc;
@@ -87,7 +82,6 @@ int install_handler(unsigned int *vector_addr, void *handler_addr)
 	/*
 	 * all set!
 	 */
-	printf("\n install handler returning 0");
 	return 0;
 }
 
@@ -101,7 +95,6 @@ int install_handler(unsigned int *vector_addr, void *handler_addr)
 void C_SWI_Handler(int swi_num, unsigned int *sp)
 {
 	unsigned int r0, r1, r2;
-	printf("\n inside C_SWI_Handler: swi num is %x", swi_num);
 	switch(swi_num) {
 		case READ_SWI:
 			r0 = *sp;
@@ -118,6 +111,10 @@ void C_SWI_Handler(int swi_num, unsigned int *sp)
 		case TIME_SWI:
 			*sp = ktime();
 			break;
+		case SLEEP_SWI:
+			r0 = *sp;
+		    ksleep((unsigned long)r0);
+			break;
 		case EXIT_SWI:
 			/*
 			 * restore the original s_handler and i_handler before dying 
@@ -126,6 +123,10 @@ void C_SWI_Handler(int swi_num, unsigned int *sp)
 			*(def_swi_handler_loc + 1) = def_swi_handler_inst2;
 			*def_irq_handler_loc = def_irq_handler_inst1;
 			*(def_irq_handler_loc + 1) = def_irq_handler_inst2;
+			/*
+			 * disable interrupts before handing over control to uboot
+			 */
+			disable_intr();
 			r0 = *sp;
 			kexit((int)r0);
 			break;
@@ -170,13 +171,10 @@ void C_IRQ_Handler(void)
 	  * acknowlegde the timer IRQ
 	  */
 	ossr_reg = reg_read(OSTMR_OSSR_ADDR);
-	printf("\n before ack, ossr reg is %x", ossr_reg);
 	ossr_reg |= OSTMR_OSSR_M0;
 	reg_write(OSTMR_OSSR_ADDR, ossr_reg);
 	
 	ossr_reg = reg_read(OSTMR_OSSR_ADDR);
-	printf("\n after ack, ossr reg is %x", ossr_reg);
-	printf("\n done with C_IRQ_Handler\n");
 	return;
 }
 
@@ -185,12 +183,10 @@ void init_irq_regs(void)
 	uint32_t icmr_mask, iclr_reg, iclr_mask;
 	icmr_mask = (0x1 << INT_OSTMR_0);
 	
-	printf("\n inside init_irq_regs \n");	
 	/*
 	 * write this mask into ICMR
 	 */
 	reg_write(INT_ICMR_ADDR, icmr_mask);
-	printf("\n init_irq_regs finished writing icmr_mask\n");	
 	/*
 	 * ensure that the OSSRMR0 interrupt is routed as an IRQ
 	 */
@@ -199,6 +195,5 @@ void init_irq_regs(void)
 	iclr_reg &= iclr_mask;
 	reg_write(INT_ICLR_ADDR, iclr_reg);
 	
-	printf("\n init_irq_regs finished writing into iclr_reg\n");	
 	return;
 }

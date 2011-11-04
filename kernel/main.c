@@ -33,7 +33,6 @@ extern unsigned int sp_for_exit;
  */
 void save_lr_and_sp_for_exit(unsigned int lr, unsigned int sp)
 {
-	printf("\n saving lr and sp for exit");
 	lr_for_exit = lr;
 	sp_for_exit = sp;
 }
@@ -91,31 +90,25 @@ int kmain(int argc, char** argv, uint32_t table)
 		return 0xbadc0de;
 }
 
-	printf("\n finidhed installing handler");	
-
 	/*
 	 * init the IRQ related registers
 	 */
 	init_irq_regs();	
 	
-	printf("\n finidhed initing irq regs");	
 	/*
 	 * setup IRQ stack
 	 */
 	setup_irq_stack(irq_stack + IRQ_STACK_SIZE - sizeof(long));
-	printf("\n finidhed setting up irq stack");	
 
 	/*
 	 * init the timer driver
 	 */
 	init_timer_driver();
-	printf("\n finidhed initing timer driver");	
 
 	/*
 	 * setup the user stack with command line args
 	 */
 	user_stack_ptr = setup_user_stack(argc, argv);
-	printf("\n finished setting up user stack");	
 
 	/*
 	 * launch the user task

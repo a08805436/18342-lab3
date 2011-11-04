@@ -15,10 +15,15 @@ int main(int argc, char** argv)
 	const char hello[] = "Hello World\r\n";
 	write(STDOUT_FILENO, hello, sizeof(hello) - 1);
 	printf("\n current_time is %lu", time());
+	sleep(5000);
 	printf("\n current_time is %lu", time());
+	sleep(5000);
 	printf("\n current_time is %lu", time());
+	sleep(5000);
 	printf("\n current_time is %lu", time());
+	sleep(5000);
 	printf("\n current_time is %lu", time());
+	sleep(5000);
 	printf("\n current_time is %lu", time());
 	printf("\n current_time is %lu", time());
 	printf("\n current_time is %lu", time());

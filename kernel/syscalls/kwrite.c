@@ -18,7 +18,6 @@ ssize_t kwrite(int fd, const void *buf, size_t count)
 {
 	ssize_t write_cnt = 0;
 	const char *ubuf = buf;
-	printf("\n inside kwrite");
 	/*
 	 * validate the fd argument
 	 */
